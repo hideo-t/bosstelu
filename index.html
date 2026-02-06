@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🚀 絵文字ギャラクシアン 🚀</title>
+    <title>TERU/XIAN&311</title>
     <style>
         * {
             margin: 0;
@@ -23,11 +23,19 @@
         
         #gameHeader {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
             align-items: center;
             padding: 10px 15px;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.7);
             height: 60px;
+        }
+        
+        #gameTitle {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 3px 3px 6px rgba(138, 43, 226, 0.8), 0 0 15px rgba(255, 215, 0, 0.6);
+            letter-spacing: 2px;
         }
         
         #scoreDisplay {
@@ -155,11 +163,18 @@
                 width: 100% !important;
                 height: auto !important;
             }
+            #gameTitle {
+                font-size: 1.3em;
+            }
+            #scoreDisplay {
+                font-size: 1.3em;
+            }
         }
     </style>
 </head>
 <body>
     <div id="gameHeader">
+        <div id="gameTitle">TERU/XIAN&311</div>
         <div id="scoreDisplay">スコア: <span id="score">0</span></div>
     </div>
     
@@ -216,6 +231,7 @@
             50: "わおん",
             40: "やばいｙ",
             30: "もはやこれまでか",
+            25: "総反撃じゃー！",
             20: "あきらめない",
             5: "にゃおん",
             0: "ばいなら～～～"
@@ -252,7 +268,8 @@
             gameOver: false,
             victory: false,
             bossComment: "ふふ余裕じゃ",
-            lastBossHpPercent: 100
+            counterAttackMode: false,
+            lastBossShot: 0
         };
         
         const bossImage = new Image();
@@ -261,10 +278,16 @@
         function updateBossComment() {
             const hpPercent = (gameState.boss.hp / gameState.boss.maxHp) * 100;
             
+            // 30%以下で総反撃モード開始
+            if (hpPercent <= 30 && !gameState.counterAttackMode) {
+                gameState.counterAttackMode = true;
+            }
+            
             let newComment = "";
             if (hpPercent <= 0) newComment = bossComments[0];
             else if (hpPercent <= 5) newComment = bossComments[5];
             else if (hpPercent <= 20) newComment = bossComments[20];
+            else if (hpPercent <= 25 && gameState.counterAttackMode) newComment = bossComments[25];
             else if (hpPercent <= 30) newComment = bossComments[30];
             else if (hpPercent <= 40) newComment = bossComments[40];
             else if (hpPercent <= 50) newComment = bossComments[50];
@@ -288,12 +311,15 @@
             const bubbleX = x - bubbleWidth / 2;
             const bubbleY = y - 15;
             
-            // 吹き出しの背景
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            // 総反撃モード時は赤い吹き出し
+            if (gameState.counterAttackMode) {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.95)';
+            } else {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            }
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 2;
             
-            // 丸角の四角形
             ctx.beginPath();
             ctx.moveTo(bubbleX + 5, bubbleY);
             ctx.lineTo(bubbleX + bubbleWidth - 5, bubbleY);
@@ -301,7 +327,6 @@
             ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - 5);
             ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - 5, bubbleY + bubbleHeight);
             
-            // 尻尾
             ctx.lineTo(bubbleX + bubbleWidth / 2 + 10, bubbleY + bubbleHeight);
             ctx.lineTo(bubbleX + bubbleWidth / 2, bubbleY + bubbleHeight + 10);
             ctx.lineTo(bubbleX + bubbleWidth / 2 - 10, bubbleY + bubbleHeight);
@@ -315,8 +340,11 @@
             ctx.fill();
             ctx.stroke();
             
-            // テキスト
-            ctx.fillStyle = '#000';
+            if (gameState.counterAttackMode) {
+                ctx.fillStyle = '#fff';
+            } else {
+                ctx.fillStyle = '#000';
+            }
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(text, x, bubbleY + bubbleHeight / 2);
@@ -351,7 +379,7 @@
         
         function createDivePath(invader, playerX) {
             const path = [];
-            const steps = 400;
+            const steps = gameState.counterAttackMode ? 300 : 400; // 総反撃時は速く
             const startX = invader.x;
             const startY = invader.y;
             
@@ -400,7 +428,6 @@
             animate();
         }
         
-        // キーボード操作
         document.addEventListener('keydown', (e) => {
             gameState.keys[e.key] = true;
             if (e.key === ' ') {
@@ -419,7 +446,6 @@
             gameState.keys[e.key] = false;
         });
         
-        // タッチ操作
         leftBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             gameState.keys['ArrowLeft'] = true;
@@ -449,7 +475,6 @@
             });
         });
         
-        // マウス操作
         leftBtn.addEventListener('mousedown', () => gameState.keys['ArrowLeft'] = true);
         leftBtn.addEventListener('mouseup', () => gameState.keys['ArrowLeft'] = false);
         rightBtn.addEventListener('mousedown', () => gameState.keys['ArrowRight'] = true);
@@ -481,6 +506,7 @@
                 return bullet.y > 0;
             });
             
+            const enemyBulletSpeed = gameState.counterAttackMode ? 1.2 : 0.75; // 総反撃時は速く
             gameState.enemyBullets = gameState.enemyBullets.filter(bullet => {
                 bullet.y += bullet.speed;
                 if (bullet.y > canvas.height - 50 &&
@@ -497,15 +523,42 @@
                 gameState.formationDirection *= -1;
             }
             
-            if (gameState.frameCount % 600 === 0) {
+            // 総反撃モード時はボスが弾を撃つ
+            if (gameState.counterAttackMode && gameState.boss.alive) {
+                if (gameState.frameCount - gameState.lastBossShot > 80) { // 頻繁に撃つ
+                    gameState.lastBossShot = gameState.frameCount;
+                    // ボスから3方向に弾を撃つ
+                    const bossX = gameState.boss.x + gameState.boss.width / 2;
+                    const bossY = gameState.boss.y + gameState.boss.height;
+                    
+                    for (let i = -1; i <= 1; i++) {
+                        gameState.enemyBullets.push({
+                            x: bossX + i * 20,
+                            y: bossY,
+                            width: 6,
+                            height: 12,
+                            speed: 1.5
+                        });
+                    }
+                }
+            }
+            
+            // 総反撃モード時は急降下頻度アップ
+            const diveInterval = gameState.counterAttackMode ? 200 : 600;
+            if (gameState.frameCount % diveInterval === 0) {
                 const aliveInFormation = gameState.invaders.filter(
                     inv => inv.alive && !inv.diving && !inv.returning
                 );
                 if (aliveInFormation.length > 0) {
-                    const randomEnemy = aliveInFormation[Math.floor(Math.random() * aliveInFormation.length)];
-                    randomEnemy.diving = true;
-                    randomEnemy.divePath = createDivePath(randomEnemy, gameState.player.x);
-                    randomEnemy.diveProgress = 0;
+                    // 総反撃時は複数同時に急降下
+                    const diveCount = gameState.counterAttackMode ? 2 : 1;
+                    for (let i = 0; i < Math.min(diveCount, aliveInFormation.length); i++) {
+                        const randomIndex = Math.floor(Math.random() * aliveInFormation.length);
+                        const randomEnemy = aliveInFormation.splice(randomIndex, 1)[0];
+                        randomEnemy.diving = true;
+                        randomEnemy.divePath = createDivePath(randomEnemy, gameState.player.x);
+                        randomEnemy.diveProgress = 0;
+                    }
                 }
             }
             
@@ -519,13 +572,14 @@
                         invader.y = pos.y;
                         invader.diveProgress++;
                         
-                        if (invader.diveProgress % 100 === 0) {
+                        const shotInterval = gameState.counterAttackMode ? 60 : 100;
+                        if (invader.diveProgress % shotInterval === 0) {
                             gameState.enemyBullets.push({
                                 x: invader.x + 20,
                                 y: invader.y,
                                 width: 4,
                                 height: 10,
-                                speed: 0.75
+                                speed: enemyBulletSpeed
                             });
                         }
                     } else {
@@ -592,6 +646,12 @@
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
+            // 総反撃モード時は背景を赤くする
+            if (gameState.counterAttackMode) {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            
             for (let i = 0; i < 50; i++) {
                 const x = (i * 73 + gameState.frameCount) % canvas.width;
                 const y = (i * 97) % canvas.height;
@@ -600,12 +660,21 @@
             }
             
             if (gameState.boss.alive && bossImage.complete) {
+                // 総反撃モード時はボスを点滅させる
+                if (gameState.counterAttackMode && Math.floor(gameState.frameCount / 10) % 2 === 0) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.7;
+                    ctx.filter = 'brightness(1.5) saturate(2)';
+                }
+                
                 ctx.drawImage(bossImage, gameState.boss.x, gameState.boss.y, gameState.boss.width, gameState.boss.height);
                 
-                // ボスの吹き出し
+                if (gameState.counterAttackMode) {
+                    ctx.restore();
+                }
+                
                 drawSpeechBubble(gameState.boss.x + gameState.boss.width / 2, gameState.boss.y - 10, gameState.bossComment);
                 
-                // HPバー（ボス画像直下）
                 const hpBarWidth = 80;
                 const hpBarHeight = 8;
                 const hpBarX = gameState.boss.x;
@@ -690,7 +759,8 @@
                 gameOver: false,
                 victory: false,
                 bossComment: "ふふ余裕じゃ",
-                lastBossHpPercent: 100
+                counterAttackMode: false,
+                lastBossShot: 0
             };
             
             scoreEl.textContent = '0';
