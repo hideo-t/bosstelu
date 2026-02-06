@@ -64,13 +64,14 @@
         
         #nameDisplay {
             position: absolute;
-            font-size: 2em;
+            font-size: 3em;
             font-weight: bold;
             color: #ffd700;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 10px rgba(255,255,0,0.5);
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.9), 0 0 20px rgba(255,255,0,0.8);
             pointer-events: none;
             display: none;
             z-index: 10;
+            white-space: nowrap;
         }
         
         #controls {
@@ -168,6 +169,9 @@
             }
             #scoreDisplay {
                 font-size: 1.3em;
+            }
+            #nameDisplay {
+                font-size: 2em;
             }
         }
     </style>
@@ -278,7 +282,6 @@
         function updateBossComment() {
             const hpPercent = (gameState.boss.hp / gameState.boss.maxHp) * 100;
             
-            // 30%以下で総反撃モード開始
             if (hpPercent <= 30 && !gameState.counterAttackMode) {
                 gameState.counterAttackMode = true;
             }
@@ -311,7 +314,6 @@
             const bubbleX = x - bubbleWidth / 2;
             const bubbleY = y - 15;
             
-            // 総反撃モード時は赤い吹き出し
             if (gameState.counterAttackMode) {
                 ctx.fillStyle = 'rgba(255, 0, 0, 0.95)';
             } else {
@@ -379,7 +381,7 @@
         
         function createDivePath(invader, playerX) {
             const path = [];
-            const steps = gameState.counterAttackMode ? 300 : 400; // 総反撃時は速く
+            const steps = gameState.counterAttackMode ? 300 : 400;
             const startX = invader.x;
             const startY = invader.y;
             
@@ -407,19 +409,25 @@
             return path;
         }
         
-        function showName(name, x, y) {
+        function showName(name) {
             const canvasRect = canvas.getBoundingClientRect();
+            const centerX = canvasRect.left + canvasRect.width / 2;
+            const centerY = canvasRect.top + canvasRect.height / 2;
+            
             nameDisplayEl.textContent = name;
-            nameDisplayEl.style.left = (canvasRect.left + x) + 'px';
-            nameDisplayEl.style.top = (canvasRect.top + y) + 'px';
+            nameDisplayEl.style.left = centerX + 'px';
+            nameDisplayEl.style.top = centerY + 'px';
+            nameDisplayEl.style.transform = 'translate(-50%, -50%)';
             nameDisplayEl.style.display = 'block';
             
             const startTime = Date.now();
             const animate = () => {
                 const elapsed = Date.now() - startTime;
-                if (elapsed < 500) {
-                    const shake = Math.sin(elapsed * 0.05) * 5;
-                    nameDisplayEl.style.transform = "translateX(" + shake + "px) rotate(" + (shake * 0.5) + "deg)";
+                if (elapsed < 800) {
+                    const shake = Math.sin(elapsed * 0.08) * 10;
+                    const rotation = Math.sin(elapsed * 0.1) * 8;
+                    const scale = 1 + Math.sin(elapsed * 0.01) * 0.2;
+                    nameDisplayEl.style.transform = "translate(-50%, -50%) translateX(" + shake + "px) rotate(" + rotation + "deg) scale(" + scale + ")";
                     requestAnimationFrame(animate);
                 } else {
                     nameDisplayEl.style.display = 'none';
@@ -506,7 +514,7 @@
                 return bullet.y > 0;
             });
             
-            const enemyBulletSpeed = gameState.counterAttackMode ? 1.2 : 0.75; // 総反撃時は速く
+            const enemyBulletSpeed = gameState.counterAttackMode ? 1.2 : 0.75;
             gameState.enemyBullets = gameState.enemyBullets.filter(bullet => {
                 bullet.y += bullet.speed;
                 if (bullet.y > canvas.height - 50 &&
@@ -523,11 +531,9 @@
                 gameState.formationDirection *= -1;
             }
             
-            // 総反撃モード時はボスが弾を撃つ
             if (gameState.counterAttackMode && gameState.boss.alive) {
-                if (gameState.frameCount - gameState.lastBossShot > 80) { // 頻繁に撃つ
+                if (gameState.frameCount - gameState.lastBossShot > 80) {
                     gameState.lastBossShot = gameState.frameCount;
-                    // ボスから3方向に弾を撃つ
                     const bossX = gameState.boss.x + gameState.boss.width / 2;
                     const bossY = gameState.boss.y + gameState.boss.height;
                     
@@ -543,14 +549,12 @@
                 }
             }
             
-            // 総反撃モード時は急降下頻度アップ
             const diveInterval = gameState.counterAttackMode ? 200 : 600;
             if (gameState.frameCount % diveInterval === 0) {
                 const aliveInFormation = gameState.invaders.filter(
                     inv => inv.alive && !inv.diving && !inv.returning
                 );
                 if (aliveInFormation.length > 0) {
-                    // 総反撃時は複数同時に急降下
                     const diveCount = gameState.counterAttackMode ? 2 : 1;
                     for (let i = 0; i < Math.min(diveCount, aliveInFormation.length); i++) {
                         const randomIndex = Math.floor(Math.random() * aliveInFormation.length);
@@ -637,7 +641,7 @@
                         
                         if (invader.isPerson) {
                             const randomName = names[Math.floor(Math.random() * names.length)];
-                            showName(randomName, invader.x, invader.y);
+                            showName(randomName);
                         }
                     }
                 });
@@ -646,7 +650,6 @@
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // 総反撃モード時は背景を赤くする
             if (gameState.counterAttackMode) {
                 ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -660,7 +663,6 @@
             }
             
             if (gameState.boss.alive && bossImage.complete) {
-                // 総反撃モード時はボスを点滅させる
                 if (gameState.counterAttackMode && Math.floor(gameState.frameCount / 10) % 2 === 0) {
                     ctx.save();
                     ctx.globalAlpha = 0.7;
